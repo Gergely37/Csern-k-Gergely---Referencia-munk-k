@@ -1,0 +1,261 @@
+using Microsoft.Win32;
+using NAudio.Wave;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Navigation;
+using System.Windows.Shapes;
+using System.Windows.Threading;
+using System.Data.SqlClient;
+using System.Data;
+using MySql.Data.MySqlClient;
+
+namespace MG_Music_Player
+{
+    
+    public partial class MainWindow : Window
+    {
+        private bool userIsDraggingSlider = false; // bool típusú változó a csúszkán történő változás érzékeléséhez
+        private bool mediaPlayerIsPlaying = false; // bool típusú változó a médialejátszó futásáról ad vissza értéket
+        public int music_num = 1; // a zenék "sorszámát" meghatározó int változó
+
+        struct adatok // az adatok felvételéhez egy struktúra alapú listát használunk
+        {
+            public int music_id; // a zene ID-ját (sorszámát) adja meg
+            public string song_name; // a zene nevét adja meg
+            public string mp3; // a zenéhez tartozó .mp3 fájl elérési útvonalát adja meg
+            public string img; // a zenéhez tartozó .jpg fájl elérési útvonalát adja meg
+            public string artist; // a zene előadőját tartalmazza
+        }
+        public MainWindow()
+        {
+            InitializeComponent();
+            string imgPath = $"{Directory.GetParent(Directory.GetCurrentDirectory()).Parent.Parent.ToString()}\\Images\\music_icon.jpg"; // A program megnyitásakor alapértelmezetten ezt a logót tölti meg a programba
+            Musicimg.Source = new BitmapImage(new Uri(imgPath)); // a music_icon.jpg behelyezése
+
+            List<adatok> ans = new List<adatok>(); // Lista létrehozása
+            adatok seged = new adatok(); // egy segéd változó 
+            string cs = @"server=localhost;userid=root;password=;database=mg_music"; // meghatározzuk a lokális adatbázis elérhetőségét és nevét
+            var conn = new MySqlConnection(cs); // létrehozzuk a kapcsolatot a szerverrel
+            conn.Open();
+            string sql = "SELECT * FROM tbl_music"; // minden elemet beolvasunk a táblából
+            var dr = new MySqlCommand(sql, conn).ExecuteReader(); // soronként végigtekintjük az olvasást
+            if (dr.HasRows) // feltétel, hogy tartalmaz-e még sort a táblázat
+            {
+                while (dr.Read()) // ameddig tud olvasni az adatbázisból, fusson a beolvasás
+                {
+                    seged.music_id = Convert.ToInt32(dr[0]); // beolvassuk és konvertáljuk a zene azonosítóját
+                    seged.song_name = Convert.ToString(dr[1]); // beolvassuk és konvertáljuk a zene nevét
+                    seged.mp3 = Convert.ToString(dr[2]); // beolvassuk és konvertáljuk a zenéhez tartozó .mp3 fájl elérési útvonalat
+                    seged.img = Convert.ToString(dr[3]); // beolvassuk és konvertáljuk a zenéhez tartozó .jpg fájl elérési útvonalat
+                    seged.artist = Convert.ToString(dr[4]); // beolvassuk és konvertáljuk a zene azonosítóját
+                    ans.Add(seged); // hozzáadjuk a listához
+                }
+                dr.Close();
+            }
+            string img_name = ans[music_num].song_name.Trim(); // egy külön változóban tároljuk a zene címét amely végéről levágjuk a fölösleges szóközöket
+            imgPath = $"C:\\MG_Music_Player\\Images\\" + img_name + ".jpg"; // beillesztjük az adott zenéhez tartozó címet
+            Musicimg.Source = new BitmapImage(new Uri(imgPath));
+
+            string song_name = ans[music_num].artist.Trim() + " - " + ans[music_num].song_name; // összerakjuk a zene előadójából és a címéből a teljes nevet
+            lblSongname.Text = song_name; // beillesztjük a teljes nevet
+            
+            string s_path = "C:\\MG_Music_Player\\Music\\" + ans[music_num].song_name.Trim() + ".mp3"; // beillesztjük az adott zenéhez tartozó .mp3 fájlt
+            mediaPlayer.Open(new Uri(s_path)); // megnyitjuk a mediaplayert
+            if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                lblMusiclength.Text = String.Format(mediaPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss")); // kiírjuk a jobb oldali labelbe a zene teljes hosszát
+            ans.Clear(); // törli a listát, technikai okok miatt többször is beolvassuk és töröljük az adatbázis elemeit
+            }
+        private void Card_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            DragMove();
+        }
+        private void btnClose_Click(object sender, RoutedEventArgs e)
+        {
+            Application.Current.Shutdown(); // a jobb felső sarokban az X-el betudjuk zárni az ablakot
+        }
+        private MediaPlayer mediaPlayer = new MediaPlayer(); // létrehozzuk a mediaplayert
+        private void btnFile_Click(object sender, RoutedEventArgs e)
+        {
+            InitializeComponent();
+            OpenFileDialog openFileDialog = new OpenFileDialog(); // a bal felső sarokban szereplő ikonra kattintva az adatbázisban nem elérhető zeneszámokat is le tudjuk játszani
+            openFileDialog.Filter = "MP3 files (*.mp3)|*.mp3|All files (*.*)|*.*";
+            if (openFileDialog.ShowDialog() == true)
+            {
+                mediaPlayer.Open(new Uri(openFileDialog.FileName)); // menyitja az .mp3 fájlt
+                mediaPlayer.Play(); // elindítja az .mp3 fájlt
+                lblSongname.Text = openFileDialog.SafeFileName; // beszúrja a beolvasott fájl nevét      
+            }
+        }
+
+        private void timer_Tick(object sender, EventArgs e)
+        {
+            if (mediaPlayer.Source != null) // amennyiben elindítjuk a médialejátszót, egy időzítő is elindul ami megadja a futási időt
+            {
+                if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                    lblCurrenttime.Text = TimeSpan.FromSeconds(mediaPlayer.Position.TotalSeconds).ToString(@"mm\:ss"); // az épp aktuális időt jelzi ki
+                if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                    lblMusiclength.Text = String.Format(mediaPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss")); // a zene teljes hosszát jelzi ki
+            }
+        }
+
+        private void btnPlay_Click(object sender, RoutedEventArgs e)
+        {
+            
+            mediaPlayer.Play(); // elindítja a zenelejátszást
+            mediaPlayerIsPlaying = true;
+
+            DispatcherTimer timer = new DispatcherTimer(); // elindítja a timert
+            timer.Interval = TimeSpan.FromSeconds(1);
+            timer.Tick += timer_Tick;
+            timer.Start();
+        }
+        private void btnStop_Click(object sender, RoutedEventArgs e)
+        {
+            mediaPlayer.Pause(); // megállítja a zenelejátszót
+            mediaPlayerIsPlaying = false;
+        }
+
+
+        private void btnPNext_Click(object sender, RoutedEventArgs e)
+        {
+            mediaPlayer.Pause();
+            InitializeComponent();
+
+            List<adatok> ans = new List<adatok>(); // Lista létrehozása
+            adatok seged = new adatok(); // egy segéd változó 
+            string cs = @"server=localhost;userid=root;password=;database=mg_music"; // meghatározzuk a lokális adatbázis elérhetőségét és nevét
+            var conn = new MySqlConnection(cs); // létrehozzuk a kapcsolatot a szerverrel
+            conn.Open();
+            string sql = "SELECT * FROM tbl_music"; // minden elemet beolvasunk a táblából
+            var dr = new MySqlCommand(sql, conn).ExecuteReader(); // soronként végigtekintjük az olvasást
+            if (dr.HasRows) // feltétel, hogy tartalmaz-e még sort a táblázat
+            {
+                while (dr.Read()) // ameddig tud olvasni az adatbázisból, fusson a beolvasás
+                {
+                    seged.music_id = Convert.ToInt32(dr[0]); // beolvassuk és konvertáljuk a zene azonosítóját
+                    seged.song_name = Convert.ToString(dr[1]); // beolvassuk és konvertáljuk a zene nevét
+                    seged.mp3 = Convert.ToString(dr[2]); // beolvassuk és konvertáljuk a zenéhez tartozó .mp3 fájl elérési útvonalat
+                    seged.img = Convert.ToString(dr[3]); // beolvassuk és konvertáljuk a zenéhez tartozó .jpg fájl elérési útvonalat
+                    seged.artist = Convert.ToString(dr[4]); // beolvassuk és konvertáljuk a zene azonosítóját
+                    ans.Add(seged); // hozzáadjuk a listához
+                }
+                dr.Close();
+            }
+            if (music_num == ans.Count)
+            {
+                music_num = 1;
+                string img_name = ans[music_num].song_name.Trim();  // egy külön változóban tároljuk a zene címét amely végéről levágjuk a fölösleges szóközöket
+                string imgPath = $"C:\\MG_Music_Player\\Images\\" + img_name + ".jpg"; // beillesztjük az adott zenéhez tartozó címet
+                Musicimg.Source = new BitmapImage(new Uri(imgPath));
+
+                string song_name = ans[music_num].artist.Trim() + " - " + ans[music_num].song_name; // összerakjuk a zene előadójából és a címéből a teljes nevet
+                lblSongname.Text = song_name; // beillesztjük a teljes nevet
+
+                string s_path = "C:\\MG_Music_Player\\Music\\" + ans[music_num].song_name.Trim() + ".mp3"; // beillesztjük az adott zenéhez tartozó .mp3 fájlt
+                mediaPlayer.Open(new Uri(s_path)); // megnyitjuk a mediaplayert
+                if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                    lblMusiclength.Text = String.Format(mediaPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss")); // kiírjuk a jobb oldali labelbe a zene teljes hosszát
+            }
+            else
+            {
+                music_num++;
+                string img_name = ans[music_num].song_name.Trim();  // egy külön változóban tároljuk a zene címét amely végéről levágjuk a fölösleges szóközöket
+                string imgPath = $"C:\\MG_Music_Player\\Images\\" + img_name + ".jpg"; // beillesztjük az adott zenéhez tartozó címet
+                Musicimg.Source = new BitmapImage(new Uri(imgPath));
+
+                string song_name = ans[music_num].artist.Trim() + " - " + ans[music_num].song_name; // összerakjuk a zene előadójából és a címéből a teljes nevet
+                lblSongname.Text = song_name; // beillesztjük a teljes nevet
+
+                string s_path = "C:\\MG_Music_Player\\Music\\" + ans[music_num].song_name.Trim() + ".mp3"; // beillesztjük az adott zenéhez tartozó .mp3 fájlt
+                mediaPlayer.Open(new Uri(s_path)); // megnyitjuk a mediaplayert
+                if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                    lblMusiclength.Text = String.Format(mediaPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss")); // kiírjuk a jobb oldali labelbe a zene teljes hosszát
+            }
+            ans.Clear();
+        }
+
+        private void btnPRewind_Click(object sender, RoutedEventArgs e)
+        {
+            mediaPlayer.Pause();
+            InitializeComponent();
+            List<adatok> ans = new List<adatok>(); // Lista létrehozása
+            adatok seged = new adatok(); // egy segéd változó 
+            string cs = @"server=localhost;userid=root;password=;database=mg_music"; // meghatározzuk a lokális adatbázis elérhetőségét és nevét
+            var conn = new MySqlConnection(cs); // létrehozzuk a kapcsolatot a szerverrel
+            conn.Open();
+            string sql = "SELECT * FROM tbl_music"; // minden elemet beolvasunk a táblából
+            var dr = new MySqlCommand(sql, conn).ExecuteReader(); // soronként végigtekintjük az olvasást
+            if (dr.HasRows) // feltétel, hogy tartalmaz-e még sort a táblázat
+            {
+                while (dr.Read()) // ameddig tud olvasni az adatbázisból, fusson a beolvasás
+                {
+                    seged.music_id = Convert.ToInt32(dr[0]); // beolvassuk és konvertáljuk a zene azonosítóját
+                    seged.song_name = Convert.ToString(dr[1]); // beolvassuk és konvertáljuk a zene nevét
+                    seged.mp3 = Convert.ToString(dr[2]); // beolvassuk és konvertáljuk a zenéhez tartozó .mp3 fájl elérési útvonalat
+                    seged.img = Convert.ToString(dr[3]); // beolvassuk és konvertáljuk a zenéhez tartozó .jpg fájl elérési útvonalat
+                    seged.artist = Convert.ToString(dr[4]); // beolvassuk és konvertáljuk a zene azonosítóját
+                    ans.Add(seged); // hozzáadjuk a listához
+                }
+                dr.Close();
+            }
+            if (music_num - 1 == 0)
+            {
+                music_num = 10;
+                string img_name = ans[music_num].song_name.Trim();  // egy külön változóban tároljuk a zene címét amely végéről levágjuk a fölösleges szóközöket
+                string imgPath = $"C:\\MG_Music_Player\\Images\\" + img_name + ".jpg"; // beillesztjük az adott zenéhez tartozó címet
+                Musicimg.Source = new BitmapImage(new Uri(imgPath));
+
+                string song_name = ans[music_num].artist.Trim() + " - " + ans[music_num].song_name; // összerakjuk a zene előadójából és a címéből a teljes nevet
+                lblSongname.Text = song_name; // beillesztjük a teljes nevet
+
+                string s_path = "C:\\MG_Music_Player\\Music\\" + ans[music_num].song_name.Trim() + ".mp3"; // beillesztjük az adott zenéhez tartozó .mp3 fájlt
+                mediaPlayer.Open(new Uri(s_path)); // megnyitjuk a mediaplayert
+                if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                    lblMusiclength.Text = String.Format(mediaPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss")); // kiírjuk a jobb oldali labelbe a zene teljes hosszát
+            }
+            else 
+            {
+                music_num--;
+                string img_name = ans[music_num].song_name.Trim();  // egy külön változóban tároljuk a zene címét amely végéről levágjuk a fölösleges szóközöket
+                string imgPath = $"C:\\MG_Music_Player\\Images\\" + img_name + ".jpg"; // beillesztjük az adott zenéhez tartozó címet
+                Musicimg.Source = new BitmapImage(new Uri(imgPath));
+
+                string song_name = ans[music_num].artist.Trim() + " - " + ans[music_num].song_name; // összerakjuk a zene előadójából és a címéből a teljes nevet
+                lblSongname.Text = song_name; // beillesztjük a teljes nevet
+
+                string s_path = "C:\\MG_Music_Player\\Music\\" + ans[music_num].song_name.Trim() + ".mp3"; // beillesztjük az adott zenéhez tartozó .mp3 fájlt
+                mediaPlayer.Open(new Uri(s_path)); // megnyitjuk a mediaplayert
+                if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                    lblMusiclength.Text = String.Format(mediaPlayer.NaturalDuration.TimeSpan.ToString(@"mm\:ss")); // kiírjuk a jobb oldali labelbe a zene teljes hosszát
+            }
+            ans.Clear();
+        }
+
+        
+        private void sliProgress_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {  
+            int SliderValue = (int)TimerSlider.Value; // átveszi a változó a Slider értékét
+            if (mediaPlayer.NaturalDuration.HasTimeSpan)
+                lblCurrenttime.Text = TimeSpan.FromSeconds(TimerSlider.Value).ToString(@"mm\:ss"); // átírja a slider értékére az aktuális időt is
+            TimeSpan ts = new TimeSpan(0, 0, 0, SliderValue);
+            mediaPlayer.Position = ts; // a médiafájlban is a slider értékének megfelelő időponthoz teker
+        }
+
+        private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            mediaPlayer.Volume = (double)VolumeSlider.Value; // szabályozható a médialejátszó hangereje
+        }
+    }
+}
