@@ -13,7 +13,6 @@ namespace Quine_McCluskey_Algorithm
             }
             else
             {
-
                 List<List<LogicState>> trueRows = getRowsWithTrueOutput(input);
 
                 bool minimized = false;
