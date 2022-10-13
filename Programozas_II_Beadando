@@ -1,0 +1,210 @@
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+
+using namespace std;
+
+struct futar {
+    int nap_sorszama; // A nap sorszáma, ami 1 és 7 közötti érték lehet
+    int fuvarszam; //  A napon belüli fuvarszám, ami 1 és 40 közötti érték lehet
+    int km; // Az adott fuvar során megtett utat jelenti kilométerben
+    int penz; // Később bevezetett érték
+};
+
+class futar_o {
+private: futar* A;
+         int db;
+public: futar_o(string fnev);
+        ~futar_o();
+        int Get_ElsoUt();
+        int Get_UtolsoUt();
+        void Get_SzabadNapok();
+        int Get_Legtobbfuvar();
+        void Napi_Km();
+        void Fizetes(int T_km);
+        int Heti_Fizetes(int Heti_fizu);
+        void Kiir();
+};
+
+int main() {
+    setlocale(LC_ALL, "");
+    int T_km;
+    int Heti_fizu = 0;
+    cout << "1. feladat: A tavok.txt fájl adatainak beolvasása. " << endl; futar_o adatok("tavok.txt");
+    cout << "2. feladat: A hét legelső útja kilóméterben: " << adatok.Get_ElsoUt() << " km" <<endl;
+    cout << "3. feladat: A hét utolsó útja kilóméterben: " << adatok.Get_UtolsoUt() << " km" << endl;
+    cout << "4. feladat: Ez(ek) a nap(ok) volt(ak) a futár szabadnapja(i): " ; adatok.Get_SzabadNapok(); cout << endl;
+    cout << "5. feladat: Ezen a napon volt a legtöbb fuvar: " << adatok.Get_Legtobbfuvar() << endl;
+    cout << "6. feladat: Napi kilóméter összesítés: " << endl; adatok.Napi_Km();
+    cout << "7. feladat: Tetszőleges távra a fizetés megállapítása: " << endl;
+    cout << "     " << "Adjon meg egy tetszőleges távolságot!  " ; cin >> T_km; adatok.Fizetes(T_km);
+    cout << "8. feladat: A dijazas.txt fájlba a megfelelő adatok kiíratása. " << endl; adatok.Kiir();
+    cout << "9. feladat: Az összesített heti fizetés: " << adatok.Heti_Fizetes(Heti_fizu) << " Ft" << endl;
+    system("pause");
+    return 0;
+}
+
+// 1. feladat: tavok.txt beolvasása
+futar_o :: futar_o(string fnev) { 
+    ifstream be(fnev);
+    if (be.fail()) { cerr << "Hiba a fájl beolvasása közben!"; system("pause"); exit(1); }
+    A = new futar[100];
+    for (int i = 0; !be.eof(); i++)
+    {
+        be >> A[i].nap_sorszama;
+        be >> A[i].fuvarszam;
+        be >> A[i].km;
+        db++;
+        // cout << setw(3) << A[i].nap_sorszama << setw(3) << A[i].fuvarszam << setw(3) << A[i].km << endl; // Önellenőrzés, a beolvasott fájlok megtekintésére
+    }
+    be.close();
+
+    // Rendezés
+    for (int i = 0; i < db - 1; i++) {
+        for (int j = i + 1; j < db; j++) {
+            futar csere;
+            if (A[i].nap_sorszama > A[j].nap_sorszama || (A[i].nap_sorszama == A[j].nap_sorszama && A[i].fuvarszam > A[j].fuvarszam)) {
+                csere = A[i];
+                A[i] = A[j];
+                A[j] = csere;
+            }
+        }
+    }
+}
+
+futar_o::~futar_o() {
+    if (A != 0) { delete[]A; }
+}
+
+// 2. feladat: A hét legelső útja kilóméterben (Nem biztos, hogy az első napon volt)
+int futar_o::Get_ElsoUt() {
+    int ElsoKm = 0;
+    int ElsoNap = 7;
+    for (int i = 0; i < db; i++)
+    {
+        if (A[i].nap_sorszama < ElsoNap) { ElsoNap = A[i].nap_sorszama; } // Minimumkiválasztással kiderítjük, hogy melyik nap volt az első munkanapja a futárunknak
+    }
+    for (int i = 0; i < db; i++)
+    {
+        if (ElsoNap == A[i].nap_sorszama && A[i].fuvarszam == 1) { ElsoKm = A[i].km; }
+    }
+    return ElsoKm;
+}
+
+// 3. feladat: A hét utolsó útja kilóméterben
+int futar_o::Get_UtolsoUt() {
+    int UNap = 1;
+    int UFuvar = 1;
+    int UKm = 0;
+    for (int i = 0; i < db; i++)
+    {
+        if (A[i].nap_sorszama > UNap) { UNap = A[i].nap_sorszama; } // Maximumkiválasztással kiderítjük, hogy melyik nap volt az utolsó munkanapja a futárunknak
+    }
+    for (int i = 0; i < db; i++)
+    {
+        if (A[i].nap_sorszama == UNap) {
+            for (int j = 0; j < 40; j++) {
+                if (A[i].fuvarszam > UFuvar) { UKm = A[i].km; } // Maximumkiválasztással kiderítjük, hogy melyik volt az utolsó fuvarja a futárunknak
+            }
+        }
+    }
+    return UKm;
+}
+
+// 4. feladat: Melyik nap volt szabadnap?
+void futar_o::Get_SzabadNapok() {
+    int Napi_Fuvar[8] = { 0 };
+    for (int i = 0; i < db; i++)
+    {
+        Napi_Fuvar[A[i].nap_sorszama]++;
+    }
+    for (int i = 1; i <= 7; i++)
+    {
+        if (Napi_Fuvar[i] == 0) { cout << i << " "; }
+    }
+}
+
+// 5. feladat: Melyik nap volt a legtöbb fuvar?
+int futar_o::Get_Legtobbfuvar() {
+    int Max_Fuvar = 1;
+    int Napi_Fuvar[8] = { 0 };
+    for (int i = 0; i < db; i++)
+    {
+        Napi_Fuvar[A[i].nap_sorszama]++;
+    }
+    for (int i = 2; i <= 7; i++)
+    {
+        if (Napi_Fuvar[i] > Napi_Fuvar[Max_Fuvar])
+        {
+            Max_Fuvar = i;
+        }
+    }
+    return Max_Fuvar;
+}
+
+// 6. feladat: Naponta megtett kilóméterek kigyűjtése
+void futar_o::Napi_Km() {
+    int Napi_km[8] = {0};
+    for (int i = 0; i < db; i++) {
+        Napi_km[A[i].nap_sorszama] += A[i].km;
+    }
+    for (int i = 1; i <= 7; i++) {
+        cout << "     " << i << ". nap: " << Napi_km[i] << " km" << endl;
+    }
+}
+
+// 7. feladat: Tetszőleges távolság bekérése és a megkeresett pénz kiíratása
+void futar_o::Fizetes(int T_km) {
+    int fizetes;
+    if (T_km <= 2) {
+        fizetes = 500;
+    }
+    else if (T_km <= 5) {
+        fizetes = 700;
+    }
+    else if (T_km <= 10) {
+        fizetes = 900;
+    }
+    else if (T_km <= 20) {
+        fizetes = 1400;
+    }
+    else if (T_km <= 30) {
+        fizetes = 2000;
+    }
+    cout << "     " << "A fizetés a választott útra: " << fizetes << " Ft" << endl;
+}
+
+// 8. feladat: Kiíraás a dijazas.txt fájlba
+void futar_o::Kiir() {
+    for (int i = 0; i < db; i++)
+    {
+        if (A[i].km <= 2) {
+            A[i].penz = 500;
+        }
+        else if (A[i].km <= 5) {
+            A[i].penz = 700;
+        }
+        else if (A[i].km <= 10) {
+            A[i].penz = 900;
+        }
+        else if (A[i].km <= 20) {
+            A[i].penz = 1400;
+        }
+        else if (A[i].km <= 30) {
+            A[i].penz = 2000;
+        }
+    }
+    ofstream ki("dijazas.txt");
+    for (int i = 0; i < db; i++) {
+        ki << A[i].nap_sorszama << ". nap " << A[i].fuvarszam << ". út: " << A[i].penz << " Ft" << endl;
+    }
+    ki.close();
+}
+
+// 9. feladat: Futárunk fizetése a heti munkájáért
+int futar_o::Heti_Fizetes(int Heti_fizu) {
+    for (int i = 0; i < db; i++) {
+        Heti_fizu += A[i].penz;
+    }
+    return Heti_fizu;
+}
